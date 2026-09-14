@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { GameBadge } from "@/components/game/GameBadge";
 import { config as defaultConfig } from "@/lib/game/config";
+import { formatClock } from "@/lib/game/format";
 
 export function ConfigTab({
   maxPlayers: propMaxPlayers,
@@ -156,7 +157,7 @@ export function ConfigTab({
               Memory Phase Duration
             </h3>
             <span className="font-mono text-xs font-bold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-400/30">
-              {memorySeconds} Seconds
+              {formatClock(memorySeconds * 1000)}
             </span>
           </div>
           <p className="text-xs text-indigo-200/70">
@@ -175,7 +176,7 @@ export function ConfigTab({
                     : "bg-slate-900/80 border border-white/10 text-indigo-200/70 hover:text-white"
                 }`}
               >
-                {sec}s
+                {formatClock(sec * 1000)}
               </button>
             ))}
           </div>
@@ -188,24 +189,25 @@ export function ConfigTab({
               Puzzle Phase Limit
             </h3>
             <span className="font-mono text-xs font-bold text-fuchsia-300 bg-fuchsia-500/15 px-2 py-0.5 rounded-full border border-fuchsia-400/30">
-              {Math.round(puzzleSeconds / 60)} Minutes
+              {formatClock(puzzleSeconds * 1000)}
             </span>
           </div>
           <p className="text-xs text-indigo-200/70">
             Maximum round time limit before unsolved players are eliminated.
           </p>
 
-          <div className="flex items-center gap-2 my-1">
+          <div className="grid grid-cols-4 gap-2 my-1">
             {[
-              { sec: 120, label: "2 Min" },
-              { sec: 180, label: "3 Min" },
-              { sec: 300, label: "5 Min" },
+              { sec: 120, label: "02:00" },
+              { sec: 150, label: "02:30" },
+              { sec: 180, label: "03:00" },
+              { sec: 300, label: "05:00" },
             ].map((opt) => (
               <button
                 key={opt.sec}
                 type="button"
                 onClick={() => setPuzzleSeconds(opt.sec)}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`py-2 rounded-xl text-xs font-bold transition-all ${
                   puzzleSeconds === opt.sec
                     ? "bg-fuchsia-500 text-white font-black shadow-[0_0_12px_rgba(217,70,239,0.5)]"
                     : "bg-slate-900/80 border border-white/10 text-indigo-200/70 hover:text-white"

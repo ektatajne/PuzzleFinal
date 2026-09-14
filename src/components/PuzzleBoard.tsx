@@ -71,46 +71,28 @@ export function PuzzleBoard({
   const previous = useRef<number[]>(board);
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const prevPieceSlotMapRef = useRef<Map<number, number>>(new Map());
-  const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const prevPieceRectsRef = useRef<Map<number, DOMRect>>(new Map());
 
-  const lastDragMoveLogAt = useRef(Number.NEGATIVE_INFINITY);
-
-  // Pointer tracking ref for synchronous, accurate gesture evaluation
-  const pointerTracker = useRef<{
-    pointerId: number;
-    startSlot: number;
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-    isDragging: boolean;
-    cellRect: DOMRect | null;
-  } | null>(null);
-
-  // Mutex lock to prevent duplicate swaps from rapid tap or synthetic events
-  const swapLockRef = useRef(false);
-
-  // Smooth FLIP positional slide animation between swapped tiles
+  // Sub-pixel exact FLIP positional slide animation between swapped tiles (works on 2x2 to 8x8)
   useLayoutEffect(() => {
-    const prevMap = prevPieceSlotMapRef.current;
-    const currentMap = new Map<number, number>();
+    const prevRects = prevPieceRectsRef.current;
+    const currentRects = new Map<number, DOMRect>();
 
     board.forEach((pieceId, slot) => {
-      currentMap.set(pieceId, slot);
-      const oldSlot = prevMap.get(pieceId);
-      if (oldSlot !== undefined && oldSlot !== slot) {
-        const oldCol = oldSlot % cols;
-        const oldRow = Math.floor(oldSlot / cols);
-        const newCol = slot % cols;
-        const newRow = Math.floor(slot / cols);
-        const dxPercent = (oldCol - newCol) * 100;
-        const dyPercent = (oldRow - newRow) * 100;
+      const el = tileRefs.current[slot];
+      if (!el) return;
 
-        const el = tileRefs.current[slot];
-        if (el) {
+      const newRect = el.getBoundingClientRect();
+      currentRects.set(pieceId, newRect);
+
+      const oldRect = prevRects.get(pieceId);
+      if (oldRect) {
+        const dx = oldRect.left - newRect.left;
+        const dy = oldRect.top - newRect.top;
+
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
           el.style.transition = "none";
-          el.style.transform = `translate3d(${dxPercent}%, ${dyPercent}%, 0)`;
+          el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
           el.style.zIndex = "15";
           void el.offsetWidth; // Force reflow
           requestAnimationFrame(() => {
@@ -120,6 +102,7 @@ export function PuzzleBoard({
               setTimeout(() => {
                 if (el) {
                   el.style.zIndex = "";
+                  el.style.transition = "";
                 }
               }, 220);
             }
@@ -128,7 +111,7 @@ export function PuzzleBoard({
       }
     });
 
-    prevPieceSlotMapRef.current = currentMap;
+    prevPieceRectsRef.current = currentRects;
   }, [board, cols, rows]);
 
   useEffect(() => {
