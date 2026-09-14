@@ -1111,6 +1111,8 @@ export function useFuzalGame(opts: UseOpts) {
     }
   }, [opts.code, opts.hostToken, showToast]);
 
+  const activeInFlightActionsRef = useRef<Set<string>>(new Set());
+
   const swap = useCallback(
     async (from: number, to: number) => {
       const prev = stateRef.current;
@@ -1120,8 +1122,7 @@ export function useFuzalGame(opts: UseOpts) {
         from === to ||
         isEliminated ||
         !prev?.puzzle ||
-        prev.puzzle.completed ||
-        swapInFlightRef.current
+        prev.puzzle.completed
       ) {
         return;
       }
@@ -1143,6 +1144,8 @@ export function useFuzalGame(opts: UseOpts) {
       const nextBoard = swapPieces(prev.puzzle.board, from, to);
       const solved = isSolved(nextBoard, totalPieces);
       const optimisticVersion = (prev.puzzle.version ?? 0) + 1;
+
+      activeInFlightActionsRef.current.add(actionId);
       swapInFlightRef.current = actionId;
 
       logClientDiagnostic("SWAP_SUBMIT", {
@@ -1193,7 +1196,7 @@ export function useFuzalGame(opts: UseOpts) {
           opts.code,
           actionBody,
           () =>
-            swapInFlightRef.current === actionId &&
+            activeInFlightActionsRef.current.has(actionId) &&
             stateRef.current?.currentGameId === prev.currentGameId,
           (error, attempt) => {
             logClientDiagnostic(
@@ -1232,9 +1235,13 @@ export function useFuzalGame(opts: UseOpts) {
             version: serverVersion,
             moves: serverMoves,
           });
+          activeInFlightActionsRef.current.delete(actionId);
           markActionAccepted(actionId, serverVersion);
-        } else if (swapInFlightRef.current === actionId) {
-          swapInFlightRef.current = null;
+        } else {
+          activeInFlightActionsRef.current.delete(actionId);
+          if (swapInFlightRef.current === actionId) {
+            swapInFlightRef.current = null;
+          }
         }
       } catch (e) {
         logClientDiagnostic(
@@ -1258,9 +1265,10 @@ export function useFuzalGame(opts: UseOpts) {
           },
           "warn",
         );
+        activeInFlightActionsRef.current.delete(actionId);
         const current = stateRef.current;
         if (
-          swapInFlightRef.current === actionId &&
+          activeInFlightActionsRef.current.size === 0 &&
           current?.status === GameState.PUZZLE &&
           current.currentGameId === prev.currentGameId
         ) {

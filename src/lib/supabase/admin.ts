@@ -30,6 +30,10 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
+if (typeof globalThis.WebSocket === "undefined") {
+  (globalThis as any).WebSocket = class {};
+}
+
 export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
     persistSession: false,

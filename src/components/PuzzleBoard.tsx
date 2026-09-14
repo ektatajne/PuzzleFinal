@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isPieceCorrectAtSlot } from "@/lib/game/puzzle";
 
 /**
@@ -71,6 +71,9 @@ export function PuzzleBoard({
   const previous = useRef<number[]>(board);
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const prevPieceSlotMapRef = useRef<Map<number, number>>(new Map());
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
   const lastDragMoveLogAt = useRef(Number.NEGATIVE_INFINITY);
 
   // Pointer tracking ref for synchronous, accurate gesture evaluation
@@ -87,6 +90,46 @@ export function PuzzleBoard({
 
   // Mutex lock to prevent duplicate swaps from rapid tap or synthetic events
   const swapLockRef = useRef(false);
+
+  // Smooth FLIP positional slide animation between swapped tiles
+  useLayoutEffect(() => {
+    const prevMap = prevPieceSlotMapRef.current;
+    const currentMap = new Map<number, number>();
+
+    board.forEach((pieceId, slot) => {
+      currentMap.set(pieceId, slot);
+      const oldSlot = prevMap.get(pieceId);
+      if (oldSlot !== undefined && oldSlot !== slot) {
+        const oldCol = oldSlot % cols;
+        const oldRow = Math.floor(oldSlot / cols);
+        const newCol = slot % cols;
+        const newRow = Math.floor(slot / cols);
+        const dxPercent = (oldCol - newCol) * 100;
+        const dyPercent = (oldRow - newRow) * 100;
+
+        const el = tileRefs.current[slot];
+        if (el) {
+          el.style.transition = "none";
+          el.style.transform = `translate3d(${dxPercent}%, ${dyPercent}%, 0)`;
+          el.style.zIndex = "15";
+          void el.offsetWidth; // Force reflow
+          requestAnimationFrame(() => {
+            if (el) {
+              el.style.transition = "transform 220ms cubic-bezier(0.2, 0, 0.2, 1)";
+              el.style.transform = "translate3d(0, 0, 0)";
+              setTimeout(() => {
+                if (el) {
+                  el.style.zIndex = "";
+                }
+              }, 220);
+            }
+          });
+        }
+      }
+    });
+
+    prevPieceSlotMapRef.current = currentMap;
+  }, [board, cols, rows]);
 
   useEffect(() => {
     const prev = previous.current;
@@ -161,7 +204,7 @@ export function PuzzleBoard({
     swapLockRef.current = true;
     setTimeout(() => {
       swapLockRef.current = false;
-    }, 180);
+    }, 40);
 
     onSwap(a, b);
   };
@@ -438,6 +481,9 @@ export function PuzzleBoard({
           return (
             <button
               key={slot}
+              ref={(el) => {
+                tileRefs.current[slot] = el;
+              }}
               type="button"
               role="gridcell"
               aria-label={`Piece position ${slot + 1}`}

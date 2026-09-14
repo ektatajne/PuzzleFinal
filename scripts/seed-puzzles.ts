@@ -15,6 +15,10 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
+if (typeof globalThis.WebSocket === "undefined") {
+  (globalThis as any).WebSocket = class {};
+}
+
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
 });
