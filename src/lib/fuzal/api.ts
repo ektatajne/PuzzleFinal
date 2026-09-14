@@ -54,6 +54,25 @@ export async function createLobby(opts?: {
   return res.json();
 }
 
+export async function updateLobbyConfig(
+  code: string,
+  token: string,
+  opts: {
+    gridSize?: number;
+    maxPlayers?: number;
+    memorySeconds?: number;
+    puzzleSeconds?: number;
+  },
+) {
+  const res = await fetch(`/api/lobbies/${code}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, ...opts }),
+  });
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
 export async function getHostOverview() {
   const res = await fetch("/api/host/overview", { cache: "no-store" });
   if (!res.ok) throw await parseError(res);

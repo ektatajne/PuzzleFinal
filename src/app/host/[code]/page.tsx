@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useFuzalGame } from "@/lib/fuzal/useFuzalGame";
 import { formatClock } from "@/lib/game/format";
-import { createLobby, sessionStore } from "@/lib/fuzal/api";
+import { createLobby, sessionStore, updateLobbyConfig } from "@/lib/fuzal/api";
 import { Wordmark, Logo } from "@/components/Brand";
 import { ConnBanner } from "@/components/ConnBanner";
 import { GameShell } from "@/components/game/GameShell";
@@ -55,6 +55,34 @@ function HostPageContent() {
 
   const game = useFuzalGame(token ? { code, kind: "host", hostToken: token } : { code, kind: "host" });
   const { state, connState, toast, memorySeconds, puzzleElapsedMs, puzzleRemainingMs, actions } = game;
+
+  const [configMaxPlayers, setConfigMaxPlayers] = useState<number>(8);
+  const [configGridSize, setConfigGridSize] = useState<number>(3);
+  const [configMemorySeconds, setConfigMemorySeconds] = useState<number>(30);
+  const [configPuzzleSeconds, setConfigPuzzleSeconds] = useState<number>(180);
+
+  useEffect(() => {
+    if (state) {
+      if (state.maxPlayers) setConfigMaxPlayers(state.maxPlayers);
+      if (state.gridCols) setConfigGridSize(state.gridCols);
+      if (state.memoryDurationSeconds) setConfigMemorySeconds(state.memoryDurationSeconds);
+      if (state.puzzleDurationSeconds) setConfigPuzzleSeconds(state.puzzleDurationSeconds);
+    }
+  }, [state?.maxPlayers, state?.gridCols, state?.memoryDurationSeconds, state?.puzzleDurationSeconds]);
+
+  async function handleSaveConfig() {
+    if (!token) return;
+    try {
+      await updateLobbyConfig(code, token, {
+        maxPlayers: configMaxPlayers,
+        gridSize: configGridSize,
+        memorySeconds: configMemorySeconds,
+        puzzleSeconds: configPuzzleSeconds,
+      });
+    } catch (err: any) {
+      console.error("Failed to save config:", err);
+    }
+  }
 
   async function newLobby() {
     const lobby = await createLobby({
@@ -233,8 +261,15 @@ function HostPageContent() {
 
             {activeTab === "config" && (
               <ConfigTab
-                maxPlayers={state.maxPlayers}
-                currentGridSize={state.gridCols}
+                maxPlayers={configMaxPlayers}
+                onMaxPlayersChange={setConfigMaxPlayers}
+                gridSize={configGridSize}
+                onGridSizeChange={setConfigGridSize}
+                memorySeconds={configMemorySeconds}
+                onMemorySecondsChange={setConfigMemorySeconds}
+                puzzleSeconds={configPuzzleSeconds}
+                onPuzzleSecondsChange={setConfigPuzzleSeconds}
+                onSave={handleSaveConfig}
               />
             )}
           </div>

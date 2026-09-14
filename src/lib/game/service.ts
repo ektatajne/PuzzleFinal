@@ -347,6 +347,16 @@ export const lobbyService = {
         ? opts.maxPlayers
         : config.maxPlayers;
 
+    const memoryDurationSeconds =
+      opts?.memorySeconds && opts.memorySeconds >= 5 && opts.memorySeconds <= 600
+        ? opts.memorySeconds
+        : config.memorySeconds;
+
+    const puzzleDurationSeconds =
+      opts?.puzzleSeconds && opts.puzzleSeconds >= 10 && opts.puzzleSeconds <= 3600
+        ? opts.puzzleSeconds
+        : config.puzzleSeconds;
+
     const lobby: Lobby = {
       id: `FZ-${code}`,
       code,
@@ -357,6 +367,8 @@ export const lobbyService = {
       gridCols,
       gridRows,
       pieceCount,
+      memoryDurationSeconds,
+      puzzleDurationSeconds,
       memory: null,
       puzzleStartedAt: null,
       winnerId: null,
@@ -369,6 +381,39 @@ export const lobbyService = {
       createdAt: Date.now(),
     };
     await lobbyRepo.put(lobby);
+    return lobby;
+  },
+
+  async updateConfig(
+    code: string,
+    hostToken: string,
+    opts: {
+      gridSize?: number;
+      maxPlayers?: number;
+      memorySeconds?: number;
+      puzzleSeconds?: number;
+    },
+  ): Promise<Lobby> {
+    const lobby = await this.getLobby(code);
+    if (lobby.hostToken !== hostToken) {
+      throw new GameError("FORBIDDEN", "Invalid host token.", 403);
+    }
+    if (opts.maxPlayers !== undefined && opts.maxPlayers >= 1 && opts.maxPlayers <= 100) {
+      lobby.maxPlayers = opts.maxPlayers;
+    }
+    if (opts.gridSize !== undefined && isSupportedGridSize(opts.gridSize)) {
+      lobby.gridCols = opts.gridSize;
+      lobby.gridRows = opts.gridSize;
+      lobby.pieceCount = opts.gridSize * opts.gridSize;
+    }
+    if (opts.memorySeconds !== undefined && opts.memorySeconds >= 5 && opts.memorySeconds <= 600) {
+      lobby.memoryDurationSeconds = opts.memorySeconds;
+    }
+    if (opts.puzzleSeconds !== undefined && opts.puzzleSeconds >= 10 && opts.puzzleSeconds <= 3600) {
+      lobby.puzzleDurationSeconds = opts.puzzleSeconds;
+    }
+    await lobbyRepo.put(lobby);
+    await manager.broadcast(code, ev("LOBBY_UPDATED", this.publicView(lobby)));
     return lobby;
   },
 
@@ -641,8 +686,9 @@ export const lobbyService = {
         puzzleStartedAt: lobby.puzzleStartedAt,
         puzzleEndsAt:
           lobby.puzzleEndsAt ??
-          (lobby.puzzleStartedAt ? lobby.puzzleStartedAt + config.puzzleSeconds * 1000 : null),
+          (lobby.puzzleStartedAt ? lobby.puzzleStartedAt + (lobby.puzzleDurationSeconds ?? config.puzzleSeconds) * 1000 : null),
         puzzleDurationSeconds: lobby.puzzleDurationSeconds ?? config.puzzleSeconds,
+        memoryDurationSeconds: lobby.memoryDurationSeconds ?? config.memorySeconds,
         puzzleProgress: null as null | ReturnType<typeof playerProgress>[],
         result: null as null | Record<string, unknown>,
       },
@@ -820,7 +866,7 @@ export const gameService = {
       }
       const image = imageService.getRandomImage(lobby.usedImageIds);
       lobby.usedImageIds.push(image.id);
-      const durationSeconds = config.memorySeconds;
+      const durationSeconds = lobby.memoryDurationSeconds ?? config.memorySeconds;
       const startedAt = Date.now();
       const endsAt = startedAt + durationSeconds * 1000;
       lobby.version = 1;
@@ -936,7 +982,8 @@ export const gameService = {
           gameId: lobby.currentGameId ?? null,
           status: lobby.status,
         });
-        return; // Idempotent: cannot transition to PUZZLE directly from LOBBY
+        assertTransition(lobby, GameState.PUZZLE);
+        return;
       }
 
       const now = Date.now();
@@ -959,7 +1006,7 @@ export const gameService = {
       assertTransition(lobby, GameState.PUZZLE);
       clearLobbyTimers(lobby);
 
-      const durationSeconds = config.puzzleSeconds; // exactly 180s (3 minutes)
+      const durationSeconds = lobby.puzzleDurationSeconds ?? config.puzzleSeconds;
       const startedAt = Date.now();
       const endsAt = startedAt + durationSeconds * 1000;
 
@@ -1537,7 +1584,7 @@ export const gameService = {
       }
       const image = imageService.getRandomImage(lobby.usedImageIds);
       lobby.usedImageIds.push(image.id);
-      const durationSeconds = config.memorySeconds;
+      const durationSeconds = lobby.memoryDurationSeconds ?? config.memorySeconds;
       const startedAt = Date.now();
       const endsAt = startedAt + durationSeconds * 1000;
       lobby.status = GameState.MEMORY;
@@ -1546,7 +1593,6 @@ export const gameService = {
       lobby.finishedAt = null;
       lobby.puzzleStartedAt = null;
       lobby.puzzleEndsAt = null;
-      lobby.puzzleDurationSeconds = undefined;
 
       const gameRowId = await createGameRoundRecord(
         code,

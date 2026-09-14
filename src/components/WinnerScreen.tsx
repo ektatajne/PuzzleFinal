@@ -108,7 +108,7 @@ export function WinnerScreen({
               {winner ? "Winning Time" : "Round Duration"}
             </span>
             <span className="font-display text-2xl sm:text-3xl font-black text-emerald-400">
-              {formatClock(result.durationMs ?? (result.timeExpired ? 180000 : 0))}
+              {formatClock(result.durationMs ?? (result.timeExpired ? ((result as any).durationSeconds ? (result as any).durationSeconds * 1000 : 180000) : 0))}
             </span>
           </div>
 

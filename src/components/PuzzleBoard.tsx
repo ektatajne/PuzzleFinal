@@ -63,6 +63,19 @@ export function PuzzleBoard({
   const boardRef = useRef<HTMLDivElement | null>(null);
   const dragAvatarRef = useRef<HTMLDivElement | null>(null);
   const dragAvatarImgRef = useRef<HTMLImageElement | null>(null);
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const swapLockRef = useRef<boolean>(false);
+  const lastDragMoveLogAt = useRef<number>(0);
+  const pointerTracker = useRef<{
+    pointerId: number;
+    startSlot: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    isDragging: boolean;
+    cellRect: DOMRect;
+  } | null>(null);
 
   const [selected, setSelected] = useState<number | null>(null);
   const [activeDragSlot, setActiveDragSlot] = useState<number | null>(null);

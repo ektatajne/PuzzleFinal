@@ -164,13 +164,13 @@ export function ConfigTab({
             Time players and audience have to memorize the original puzzle image on the big screen.
           </p>
 
-          <div className="flex items-center gap-2 my-1">
-            {[15, 30, 45, 60].map((sec) => (
+          <div className="grid grid-cols-4 gap-2 my-1">
+            {[15, 30, 45, 60, 120, 180, 300].map((sec) => (
               <button
                 key={sec}
                 type="button"
                 onClick={() => setMemorySeconds(sec)}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`py-2 rounded-xl text-xs font-bold transition-all ${
                   memorySeconds === sec
                     ? "bg-amber-400 text-slate-950 font-black shadow-[0_0_12px_rgba(251,191,36,0.5)]"
                     : "bg-slate-900/80 border border-white/10 text-indigo-200/70 hover:text-white"
@@ -202,6 +202,10 @@ export function ConfigTab({
               { sec: 150, label: "02:30" },
               { sec: 180, label: "03:00" },
               { sec: 300, label: "05:00" },
+              { sec: 600, label: "10:00" },
+              { sec: 900, label: "15:00" },
+              { sec: 1200, label: "20:00" },
+              { sec: 1800, label: "30:00" },
             ].map((opt) => (
               <button
                 key={opt.sec}

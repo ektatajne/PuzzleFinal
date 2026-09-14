@@ -91,6 +91,7 @@ export interface Lobby {
   memory: MemoryPhase | null;
   puzzleStartedAt: number | null;
   puzzleEndsAt?: number | null;
+  memoryDurationSeconds?: number;
   puzzleDurationSeconds?: number;
   winnerId: string | null;
   finishedAt: number | null;
@@ -140,10 +141,6 @@ export interface GameEvent<T = unknown> {
 /* REST validation schemas                                            */
 /* ------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------ */
-/* REST validation schemas                                            */
-/* ------------------------------------------------------------------ */
-
 export const LOBBY_CODE_RE = /^[A-Z0-9]{4}$/;
 export const PLAYER_ID_RE =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|p_[A-Za-z0-9]{10,})$/i;
@@ -162,8 +159,8 @@ export const createLobbySchema = z
     gridCols: z.number().int().min(2).max(8).optional(),
     gridRows: z.number().int().min(2).max(8).optional(),
     maxPlayers: z.number().int().min(1).max(100).optional(),
-    memorySeconds: z.number().int().min(5).max(120).optional(),
-    puzzleSeconds: z.number().int().min(10).max(600).optional(),
+    memorySeconds: z.number().int().min(5).max(600).optional(),
+    puzzleSeconds: z.number().int().min(10).max(3600).optional(),
     imageId: z.string().optional(),
   })
   .refine(
@@ -186,6 +183,14 @@ export const createLobbySchema = z
       message: "Only square grids (2x2 through 8x8) are supported for new games.",
     },
   );
+
+export const updateLobbySchema = z.object({
+  token: z.string(),
+  gridSize: z.number().int().min(2).max(8).optional(),
+  maxPlayers: z.number().int().min(1).max(100).optional(),
+  memorySeconds: z.number().int().min(5).max(600).optional(),
+  puzzleSeconds: z.number().int().min(10).max(3600).optional(),
+});
 
 export interface GameHistoryItem {
   id: string;

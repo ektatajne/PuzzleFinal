@@ -74,6 +74,7 @@ export interface ClientState {
   } | null;
   puzzleStartedAt: number | null;
   puzzleEndsAt?: number | null;
+  memoryDurationSeconds?: number | null;
   puzzleDurationSeconds?: number | null;
   puzzleProgress: ProgressView[] | null;
   result: ResultView | null;
@@ -254,6 +255,7 @@ function normalizeSnapshot(
     puzzle,
     puzzleStartedAt: puzzleStartedAt ?? puzzle?.startedAt ?? null,
     puzzleEndsAt: asNullableNumber(payload.puzzleEndsAt, null),
+    memoryDurationSeconds: asNullableNumber(payload.memoryDurationSeconds, null),
     puzzleDurationSeconds: asNullableNumber(payload.puzzleDurationSeconds, null),
     puzzleProgress: Array.isArray(payload.puzzleProgress)
       ? (payload.puzzleProgress as ProgressView[])
@@ -507,6 +509,8 @@ export function useFuzalGame(opts: UseOpts) {
           if (Array.isArray(p.players)) next.players = p.players as PlayerView[];
           if (isGameState(p.status)) next.status = p.status;
           if (p.currentGameId === null) next.currentGameId = null;
+          if (typeof p.memorySeconds === "number") next.memoryDurationSeconds = p.memorySeconds;
+          if (typeof p.puzzleSeconds === "number") next.puzzleDurationSeconds = p.puzzleSeconds;
           break;
         }
         case EventType.PLAYER_JOINED: {
@@ -557,11 +561,12 @@ export function useFuzalGame(opts: UseOpts) {
           next.status = GameState.PUZZLE;
           next.memory = null;
           next.puzzleStartedAt = asNumber(p.startedAt, next.puzzleStartedAt ?? Date.now());
+          const durSec = asNumber(p.durationSeconds, next.puzzleDurationSeconds ?? 180);
+          next.puzzleDurationSeconds = durSec;
           next.puzzleEndsAt = asNumber(
             p.endsAt,
-            next.puzzleStartedAt + 180_000,
+            next.puzzleStartedAt + durSec * 1000,
           );
-          next.puzzleDurationSeconds = asNumber(p.durationSeconds, 180);
           if (Array.isArray(p.players)) {
             next.puzzleProgress = p.players as ProgressView[];
           }
@@ -935,10 +940,11 @@ export function useFuzalGame(opts: UseOpts) {
   const puzzleRemainingMs = (() => {
     if (!state) return 0;
     if (state.status !== GameState.PUZZLE) return 0;
+    const durMs = (state.puzzleDurationSeconds ?? 180) * 1000;
     const endsAt =
       state.puzzleEndsAt ??
-      (state.puzzleStartedAt ? state.puzzleStartedAt + 180_000 : null);
-    if (!endsAt) return 180_000;
+      (state.puzzleStartedAt ? state.puzzleStartedAt + durMs : null);
+    if (!endsAt) return durMs;
     return Math.max(0, endsAt - currentServerTime);
   })();
 
@@ -1010,8 +1016,12 @@ export function useFuzalGame(opts: UseOpts) {
                 status: GameState.PUZZLE,
                 memory: null,
                 puzzleStartedAt: resp.startedAt ?? prev.puzzleStartedAt ?? Date.now(),
-                puzzleEndsAt: resp.endsAt ?? prev.puzzleEndsAt ?? Date.now() + 180_000,
                 puzzleDurationSeconds: resp.durationSeconds ?? prev.puzzleDurationSeconds ?? 180,
+                puzzleEndsAt:
+                  resp.endsAt ??
+                  prev.puzzleEndsAt ??
+                  (resp.startedAt ?? prev.puzzleStartedAt ?? Date.now()) +
+                    (resp.durationSeconds ?? prev.puzzleDurationSeconds ?? 180) * 1000,
                 puzzle: hasValidBoard
                   ? {
                       board: resp.board as number[],
